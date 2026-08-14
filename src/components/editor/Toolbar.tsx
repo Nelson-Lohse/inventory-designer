@@ -1,6 +1,13 @@
-// TODO: tool mode switching (select / draw room outline / place unit),
-// zoom controls, save.
+import { useFloorplanStore } from '../../state/floorplanStore';
 
 export default function Toolbar() {
-  return null;
+  const activeFloorplan = useFloorplanStore((s) => s.floorplans.find((f) => f.id === s.activeFloorplanId));
+  const selectFloorplan = useFloorplanStore((s) => s.selectFloorplan);
+
+  return (
+    <div className="toolbar">
+      <button onClick={() => selectFloorplan(null)}>&larr; Floorplans</button>
+      <h2>{activeFloorplan?.name ?? 'Untitled floorplan'}</h2>
+    </div>
+  );
 }

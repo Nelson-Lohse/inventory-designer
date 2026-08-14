@@ -1,5 +1,11 @@
-// TODO: inch/cm conversion + display formatting. Defaulting to inches as the
-// canonical stored unit (see ARCHITECTURE.md open decisions) — this module
-// is the single place that would change if that default changes.
+/** Inches is the canonical stored unit (see ARCHITECTURE.md open decisions). */
+export function formatInches(valueIn: number): string {
+  return `${Math.round(valueIn * 100) / 100}"`;
+}
 
-export {};
+export function inchesToFeetInches(valueIn: number): string {
+  const feet = Math.floor(valueIn / 12);
+  const inches = Math.round(valueIn % 12);
+  if (feet === 0) return `${inches}"`;
+  return inches === 0 ? `${feet}'` : `${feet}'${inches}"`;
+}

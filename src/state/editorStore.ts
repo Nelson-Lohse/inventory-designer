@@ -1,4 +1,17 @@
-// TODO: Zustand store for editor UI state — selected unit/shelf, tool mode
-// (select/place/draw-wall), zoom/pan, grid-snapping settings.
+import { create } from 'zustand';
 
-export {};
+interface EditorState {
+  selectedUnitId: string | null;
+  snapToGridEnabled: boolean;
+  gridSizeIn: number;
+  selectUnit: (id: string | null) => void;
+  setSnapToGrid: (enabled: boolean) => void;
+}
+
+export const useEditorStore = create<EditorState>((set) => ({
+  selectedUnitId: null,
+  snapToGridEnabled: true,
+  gridSizeIn: 1,
+  selectUnit: (id) => set({ selectedUnitId: id }),
+  setSnapToGrid: (enabled) => set({ snapToGridEnabled: enabled }),
+}));

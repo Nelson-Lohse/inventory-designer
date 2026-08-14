@@ -1,6 +1,30 @@
-// TODO: main editor screen — composes AppShell + Toolbar + FloorplanCanvas +
-// UnitPalette + UnitPropertiesPanel for a single active floorplan.
+import { useFloorplanStore } from '../state/floorplanStore';
+import AppShell from '../components/layout/AppShell';
+import Toolbar from '../components/editor/Toolbar';
+import UnitPalette from '../components/editor/UnitPalette';
+import UnitPropertiesPanel from '../components/editor/UnitPropertiesPanel';
+import ShelfLabelEditor from '../components/editor/ShelfLabelEditor';
+import FloorplanCanvas from '../components/canvas/FloorplanCanvas';
 
 export default function FloorplanEditorPage() {
-  return null;
+  const floorplan = useFloorplanStore((s) => s.floorplans.find((f) => f.id === s.activeFloorplanId));
+
+  if (!floorplan) return null;
+
+  return (
+    <div className="editor-page">
+      <Toolbar />
+      <AppShell
+        sidebar={
+          <>
+            <UnitPalette />
+            <UnitPropertiesPanel />
+            <ShelfLabelEditor />
+          </>
+        }
+      >
+        <FloorplanCanvas widthIn={floorplan.widthIn} depthIn={floorplan.depthIn} />
+      </AppShell>
+    </div>
+  );
 }

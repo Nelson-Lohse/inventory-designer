@@ -1,5 +1,21 @@
-// TODO: renders a Floorplan's wall/room outline polygon on the Konva Stage.
+import { Rect } from 'react-konva';
 
-export default function RoomOutline() {
-  return null;
+interface Props {
+  widthIn: number;
+  depthIn: number;
+  pxPerInch: number;
+}
+
+export default function RoomOutline({ widthIn, depthIn, pxPerInch }: Props) {
+  return (
+    <Rect
+      x={0}
+      y={0}
+      width={widthIn * pxPerInch}
+      height={depthIn * pxPerInch}
+      fill="#fafaf9"
+      stroke="#292524"
+      strokeWidth={4}
+    />
+  );
 }
