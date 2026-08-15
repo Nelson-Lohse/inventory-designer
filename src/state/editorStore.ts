@@ -7,20 +7,24 @@ interface EditorState {
   snapToGridEnabled: boolean;
   gridSizeIn: number;
   isEditingRoomShape: boolean;
+  /** Briefly set when a placement is rejected by collision, so the shape can flash — auto-clears itself. */
+  collisionFlashUnitId: string | null;
   selectUnit: (id: string | null) => void;
   selectZone: (id: string | null) => void;
   selectVertex: (index: number | null) => void;
   setSnapToGrid: (enabled: boolean) => void;
   toggleRoomShapeEdit: () => void;
+  flashCollision: (unitId: string) => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   selectedUnitId: null,
   selectedZoneId: null,
   selectedVertexIndex: null,
   snapToGridEnabled: true,
   gridSizeIn: 1,
   isEditingRoomShape: false,
+  collisionFlashUnitId: null,
   selectUnit: (id) => set({ selectedUnitId: id, selectedZoneId: null }),
   selectZone: (id) => set({ selectedZoneId: id, selectedUnitId: null }),
   selectVertex: (index) => set({ selectedVertexIndex: index }),
@@ -32,4 +36,10 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedZoneId: null,
       selectedVertexIndex: null,
     })),
+  flashCollision: (unitId) => {
+    set({ collisionFlashUnitId: unitId });
+    setTimeout(() => {
+      if (get().collisionFlashUnitId === unitId) set({ collisionFlashUnitId: null });
+    }, 400);
+  },
 }));

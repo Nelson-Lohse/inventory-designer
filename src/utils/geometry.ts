@@ -178,3 +178,88 @@ export function snapVertexToRightAngle(outline: Point[], index: number): Point[]
 
   return outline.map((pt, i) => (i === index ? intersection : pt));
 }
+
+/** A rectangle's footprint + vertical extent, for collision checks. Matches how ShelvingUnitShape/ZoneShape render. */
+export interface PlacedRect {
+  x: number;
+  y: number;
+  widthIn: number;
+  depthIn: number;
+  rotationDeg: number;
+  mountHeightIn: number;
+  heightIn: number;
+}
+
+/**
+ * The 4 corners of a rectangle rotated around its own (x, y) origin —
+ * matches Konva's rotation convention (rotation around the Group's local
+ * origin, which is where ShelvingUnitShape positions its Rect's top-left).
+ */
+export function rectCorners(rect: Pick<PlacedRect, 'x' | 'y' | 'widthIn' | 'depthIn' | 'rotationDeg'>): Point[] {
+  const rad = (rect.rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const local = [
+    { x: 0, y: 0 },
+    { x: rect.widthIn, y: 0 },
+    { x: rect.widthIn, y: rect.depthIn },
+    { x: 0, y: rect.depthIn },
+  ];
+  return local.map((c) => ({
+    x: rect.x + c.x * cos - c.y * sin,
+    y: rect.y + c.x * sin + c.y * cos,
+  }));
+}
+
+function projectOntoAxis(corners: Point[], axis: Point): [number, number] {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const c of corners) {
+    const proj = c.x * axis.x + c.y * axis.y;
+    min = Math.min(min, proj);
+    max = Math.max(max, proj);
+  }
+  return [min, max];
+}
+
+/** Separating Axis Theorem overlap test for two (possibly rotated) rectangles given as corner arrays. */
+export function rectsOverlap(cornersA: Point[], cornersB: Point[]): boolean {
+  for (const corners of [cornersA, cornersB]) {
+    for (let i = 0; i < corners.length; i++) {
+      const p1 = corners[i];
+      const p2 = corners[(i + 1) % corners.length];
+      const axis = { x: -(p2.y - p1.y), y: p2.x - p1.x };
+      const [minA, maxA] = projectOntoAxis(cornersA, axis);
+      const [minB, maxB] = projectOntoAxis(cornersB, axis);
+      if (maxA < minB || maxB < minA) return false;
+    }
+  }
+  return true;
+}
+
+/** True only if every corner is inside the polygon — an approximation, but sufficient for room-sized outlines vs. unit-sized rectangles. */
+export function rectInsidePolygon(corners: Point[], polygon: Point[]): boolean {
+  return corners.every((c) => pointInPolygon(c, polygon));
+}
+
+function verticalRangesOverlap(a: PlacedRect, b: PlacedRect): boolean {
+  const aTop = a.mountHeightIn + a.heightIn;
+  const bTop = b.mountHeightIn + b.heightIn;
+  return a.mountHeightIn < bTop && b.mountHeightIn < aTop;
+}
+
+/**
+ * A placement is valid if it stays inside the room outline AND doesn't
+ * share both footprint (XY) and height range (Z) with any other unit — two
+ * floor-standing units can't occupy the same spot, but a wall-mounted unit
+ * over an under-counter one is fine since their height ranges don't overlap.
+ */
+export function isValidUnitPlacement(candidate: PlacedRect, outline: Point[], others: PlacedRect[]): boolean {
+  const corners = rectCorners(candidate);
+  if (!rectInsidePolygon(corners, outline)) return false;
+  for (const other of others) {
+    if (!verticalRangesOverlap(candidate, other)) continue;
+    if (rectsOverlap(corners, rectCorners(other))) return false;
+  }
+  return true;
+}

@@ -1,7 +1,20 @@
 import { create } from 'zustand';
 import type { Floorplan, ShelvingUnit, Shelf, UnitTypeTemplate, Point, Zone } from '../types';
 import { floorplanRepository, shelvingUnitRepository, shelfRepository, zoneRepository } from '../data';
-import { normalizePolygon, polygonBounds } from '../utils/geometry';
+import { normalizePolygon, polygonBounds, isValidUnitPlacement, type PlacedRect } from '../utils/geometry';
+
+function toPlacedRect(unit: ShelvingUnit): PlacedRect | null {
+  if (unit.x == null || unit.y == null) return null;
+  return {
+    x: unit.x,
+    y: unit.y,
+    widthIn: unit.widthIn,
+    depthIn: unit.depthIn,
+    rotationDeg: unit.rotationDeg ?? 0,
+    mountHeightIn: unit.mountHeightIn,
+    heightIn: unit.heightIn,
+  };
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -39,7 +52,8 @@ interface FloorplanState {
   updateFloorplanOutline: (floorplanId: string, outline: Point[]) => Promise<void>;
 
   addUnitFromTemplate: (template: UnitTypeTemplate) => Promise<void>;
-  updateUnit: (unit: ShelvingUnit) => Promise<void>;
+  /** Returns false (no-op, nothing persisted) if the placement would collide with a wall or another unit. */
+  updateUnit: (unit: ShelvingUnit) => Promise<boolean>;
   deleteUnit: (id: string) => Promise<void>;
 
   setShelfLabelText: (shelfId: string, text: string) => Promise<void>;
@@ -155,6 +169,34 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
 
   updateUnit: async (unit) => {
     const previous = get().units.find((u) => u.id === unit.id);
+
+    const geometryChanged =
+      !previous ||
+      previous.x !== unit.x ||
+      previous.y !== unit.y ||
+      previous.rotationDeg !== unit.rotationDeg ||
+      previous.widthIn !== unit.widthIn ||
+      previous.depthIn !== unit.depthIn ||
+      previous.heightIn !== unit.heightIn ||
+      previous.mountHeightIn !== unit.mountHeightIn;
+
+    // Only validate when placement/size actually changed — an existing unit
+    // that predates this check (or was left overlapping) can still be
+    // renamed etc. without being blocked by its own prior state.
+    if (geometryChanged) {
+      const candidate = toPlacedRect(unit);
+      const floorplan = unit.floorplanId ? get().floorplans.find((f) => f.id === unit.floorplanId) : undefined;
+      if (candidate && floorplan) {
+        const others = get()
+          .units.filter((u) => u.id !== unit.id)
+          .map(toPlacedRect)
+          .filter((r): r is PlacedRect => r !== null);
+        if (!isValidUnitPlacement(candidate, floorplan.outline, others)) {
+          return false;
+        }
+      }
+    }
+
     const updated = { ...unit, updatedAt: nowIso() };
     await shelvingUnitRepository.update(updated);
 
@@ -198,6 +240,7 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
       units: state.units.map((u) => (u.id === updated.id ? updated : u)),
       shelvesByUnitId: { ...state.shelvesByUnitId, [unit.id]: shelves },
     }));
+    return true;
   },
 
   deleteUnit: async (id) => {

@@ -4,11 +4,17 @@ import { useEditorStore } from '../../state/editorStore';
 export default function UnitPropertiesPanel() {
   const selectedUnitId = useEditorStore((s) => s.selectedUnitId);
   const selectUnit = useEditorStore((s) => s.selectUnit);
+  const flashCollision = useEditorStore((s) => s.flashCollision);
   const unit = useFloorplanStore((s) => s.units.find((u) => u.id === selectedUnitId));
   const updateUnit = useFloorplanStore((s) => s.updateUnit);
   const deleteUnit = useFloorplanStore((s) => s.deleteUnit);
 
   if (!unit) return null;
+
+  const applyOrFlash = async (next: typeof unit) => {
+    const applied = await updateUnit(next);
+    if (!applied) flashCollision(unit.id);
+  };
 
   return (
     <div className="panel">
@@ -22,7 +28,7 @@ export default function UnitPropertiesPanel() {
         <input
           type="number"
           value={unit.widthIn}
-          onChange={(e) => updateUnit({ ...unit, widthIn: Number(e.target.value) })}
+          onChange={(e) => applyOrFlash({ ...unit, widthIn: Number(e.target.value) })}
         />
       </label>
       <label>
@@ -30,7 +36,7 @@ export default function UnitPropertiesPanel() {
         <input
           type="number"
           value={unit.depthIn}
-          onChange={(e) => updateUnit({ ...unit, depthIn: Number(e.target.value) })}
+          onChange={(e) => applyOrFlash({ ...unit, depthIn: Number(e.target.value) })}
         />
       </label>
       <label>
@@ -38,7 +44,7 @@ export default function UnitPropertiesPanel() {
         <input
           type="number"
           value={unit.heightIn}
-          onChange={(e) => updateUnit({ ...unit, heightIn: Number(e.target.value) })}
+          onChange={(e) => applyOrFlash({ ...unit, heightIn: Number(e.target.value) })}
         />
       </label>
       <label>
@@ -56,14 +62,14 @@ export default function UnitPropertiesPanel() {
           type="number"
           min={0}
           value={unit.mountHeightIn}
-          onChange={(e) => updateUnit({ ...unit, mountHeightIn: Math.max(0, Number(e.target.value)) })}
+          onChange={(e) => applyOrFlash({ ...unit, mountHeightIn: Math.max(0, Number(e.target.value)) })}
         />
       </label>
       <p className="muted">
         0 = floor-standing (including under-counter). Positive = wall-mounted, measured from the true floor to the
         bottom of the unit.
       </p>
-      <button onClick={() => updateUnit({ ...unit, rotationDeg: ((unit.rotationDeg ?? 0) + 90) % 360 })}>
+      <button onClick={() => applyOrFlash({ ...unit, rotationDeg: ((unit.rotationDeg ?? 0) + 90) % 360 })}>
         Rotate 90°
       </button>
       <button

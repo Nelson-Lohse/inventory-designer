@@ -8,8 +8,10 @@ interface Props {
   isSelected: boolean;
   draggable?: boolean;
   dimmed?: boolean;
+  rejected?: boolean;
   onSelect: () => void;
-  onDragEnd: (xIn: number, yIn: number) => void;
+  /** Returns whether the move was applied — false means it collided and was rejected. */
+  onDragEnd: (xIn: number, yIn: number) => Promise<boolean>;
 }
 
 export default function ShelvingUnitShape({
@@ -18,6 +20,7 @@ export default function ShelvingUnitShape({
   isSelected,
   draggable = true,
   dimmed = false,
+  rejected = false,
   onSelect,
   onDragEnd,
 }: Props) {
@@ -36,16 +39,23 @@ export default function ShelvingUnitShape({
       listening={draggable}
       onClick={onSelect}
       onTap={onSelect}
-      onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {
-        onDragEnd(e.target.x() / pxPerInch, e.target.y() / pxPerInch);
+      onDragEnd={async (e: Konva.KonvaEventObject<DragEvent>) => {
+        const node = e.target;
+        const applied = await onDragEnd(node.x() / pxPerInch, node.y() / pxPerInch);
+        if (!applied) {
+          // The store rejected the move, so its x/y props are unchanged from
+          // before the drag — react-konva's prop diff won't see a change and
+          // won't reposition the node on its own, so snap it back explicitly.
+          node.position({ x: (unit.x ?? 0) * pxPerInch, y: (unit.y ?? 0) * pxPerInch });
+        }
       }}
     >
       <Rect
         width={widthPx}
         height={depthPx}
-        fill={isElevated ? '#ede9fe' : '#bfdbfe'}
-        stroke={isSelected ? '#2563eb' : isElevated ? '#6d28d9' : '#1e3a8a'}
-        strokeWidth={isSelected ? 3 : 1.5}
+        fill={rejected ? '#fecaca' : isElevated ? '#ede9fe' : '#bfdbfe'}
+        stroke={rejected ? '#b91c1c' : isSelected ? '#2563eb' : isElevated ? '#6d28d9' : '#1e3a8a'}
+        strokeWidth={isSelected || rejected ? 3 : 1.5}
         dash={isElevated ? [5, 3] : undefined}
         cornerRadius={2}
       />

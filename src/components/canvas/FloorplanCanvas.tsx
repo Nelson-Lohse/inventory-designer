@@ -31,6 +31,8 @@ export default function FloorplanCanvas({ floorplan }: Props) {
   const snapToGridEnabled = useEditorStore((s) => s.snapToGridEnabled);
   const gridSizeIn = useEditorStore((s) => s.gridSizeIn);
   const isEditingRoomShape = useEditorStore((s) => s.isEditingRoomShape);
+  const collisionFlashUnitId = useEditorStore((s) => s.collisionFlashUnitId);
+  const flashCollision = useEditorStore((s) => s.flashCollision);
 
   const stageWidth = widthIn * PX_PER_INCH + CANVAS_MARGIN * 2;
   const stageHeight = depthIn * PX_PER_INCH + CANVAS_MARGIN * 2;
@@ -57,12 +59,14 @@ export default function FloorplanCanvas({ floorplan }: Props) {
     );
   }
 
-  const handleUnitDragEnd = (unitId: string, xIn: number, yIn: number) => {
+  const handleUnitDragEnd = async (unitId: string, xIn: number, yIn: number): Promise<boolean> => {
     const unit = units.find((u) => u.id === unitId);
-    if (!unit) return;
+    if (!unit) return false;
     const nextX = snapToGridEnabled ? snapToGrid(xIn, gridSizeIn) : xIn;
     const nextY = snapToGridEnabled ? snapToGrid(yIn, gridSizeIn) : yIn;
-    updateUnit({ ...unit, x: nextX, y: nextY });
+    const applied = await updateUnit({ ...unit, x: nextX, y: nextY });
+    if (!applied) flashCollision(unitId);
+    return applied;
   };
 
   const handleZoneDragEnd = (zoneId: string, xIn: number, yIn: number) => {
@@ -103,6 +107,7 @@ export default function FloorplanCanvas({ floorplan }: Props) {
             isSelected={unit.id === selectedUnitId}
             draggable={!isEditingRoomShape}
             dimmed={isEditingRoomShape}
+            rejected={unit.id === collisionFlashUnitId}
             onSelect={() => selectUnit(unit.id)}
             onDragEnd={(xIn, yIn) => handleUnitDragEnd(unit.id, xIn, yIn)}
           />
