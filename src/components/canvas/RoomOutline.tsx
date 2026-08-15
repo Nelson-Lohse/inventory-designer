@@ -1,21 +1,13 @@
-import { Rect } from 'react-konva';
+import { Line } from 'react-konva';
+import type { Point } from '../../types';
 
 interface Props {
-  widthIn: number;
-  depthIn: number;
+  outline: Point[];
   pxPerInch: number;
 }
 
-export default function RoomOutline({ widthIn, depthIn, pxPerInch }: Props) {
-  return (
-    <Rect
-      x={0}
-      y={0}
-      width={widthIn * pxPerInch}
-      height={depthIn * pxPerInch}
-      fill="#fafaf9"
-      stroke="#292524"
-      strokeWidth={4}
-    />
-  );
+export default function RoomOutline({ outline, pxPerInch }: Props) {
+  const points = outline.flatMap((p) => [p.x * pxPerInch, p.y * pxPerInch]);
+
+  return <Line points={points} closed fill="#fafaf9" stroke="#292524" strokeWidth={4} lineJoin="round" />;
 }

@@ -1,9 +1,11 @@
 import { Stage, Layer, Line } from 'react-konva';
 import type Konva from 'konva';
+import type { Floorplan } from '../../types';
 import { useFloorplanStore } from '../../state/floorplanStore';
 import { useEditorStore } from '../../state/editorStore';
 import { snapToGrid } from '../../utils/geometry';
 import RoomOutline from './RoomOutline';
+import RoomShapeHandles from './RoomShapeHandles';
 import ShelvingUnitShape from './ShelvingUnitShape';
 
 const PX_PER_INCH = 4;
@@ -11,17 +13,19 @@ const CANVAS_MARGIN = 20;
 const GRID_STEP_IN = 12;
 
 interface Props {
-  widthIn: number;
-  depthIn: number;
+  floorplan: Floorplan;
 }
 
-export default function FloorplanCanvas({ widthIn, depthIn }: Props) {
+export default function FloorplanCanvas({ floorplan }: Props) {
+  const { widthIn, depthIn, outline } = floorplan;
   const units = useFloorplanStore((s) => s.units);
   const updateUnit = useFloorplanStore((s) => s.updateUnit);
+  const updateFloorplanOutline = useFloorplanStore((s) => s.updateFloorplanOutline);
   const selectedUnitId = useEditorStore((s) => s.selectedUnitId);
   const selectUnit = useEditorStore((s) => s.selectUnit);
   const snapToGridEnabled = useEditorStore((s) => s.snapToGridEnabled);
   const gridSizeIn = useEditorStore((s) => s.gridSizeIn);
+  const isEditingRoomShape = useEditorStore((s) => s.isEditingRoomShape);
 
   const stageWidth = widthIn * PX_PER_INCH + CANVAS_MARGIN * 2;
   const stageHeight = depthIn * PX_PER_INCH + CANVAS_MARGIN * 2;
@@ -65,7 +69,7 @@ export default function FloorplanCanvas({ widthIn, depthIn }: Props) {
       }}
     >
       <Layer x={CANVAS_MARGIN} y={CANVAS_MARGIN}>
-        <RoomOutline widthIn={widthIn} depthIn={depthIn} pxPerInch={PX_PER_INCH} />
+        <RoomOutline outline={outline} pxPerInch={PX_PER_INCH} />
         {gridLines}
         {units.map((unit) => (
           <ShelvingUnitShape
@@ -73,10 +77,20 @@ export default function FloorplanCanvas({ widthIn, depthIn }: Props) {
             unit={unit}
             pxPerInch={PX_PER_INCH}
             isSelected={unit.id === selectedUnitId}
+            draggable={!isEditingRoomShape}
+            dimmed={isEditingRoomShape}
             onSelect={() => selectUnit(unit.id)}
             onDragEnd={(xIn, yIn) => handleUnitDragEnd(unit.id, xIn, yIn)}
           />
         ))}
+        {isEditingRoomShape && (
+          <RoomShapeHandles
+            outline={outline}
+            pxPerInch={PX_PER_INCH}
+            gridSizeIn={gridSizeIn}
+            onChange={(next) => updateFloorplanOutline(floorplan.id, next)}
+          />
+        )}
       </Layer>
     </Stage>
   );

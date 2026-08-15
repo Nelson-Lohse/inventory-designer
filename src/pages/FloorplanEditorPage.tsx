@@ -23,7 +23,7 @@ export default function FloorplanEditorPage() {
           </>
         }
       >
-        <FloorplanCanvas widthIn={floorplan.widthIn} depthIn={floorplan.depthIn} />
+        <FloorplanCanvas floorplan={floorplan} />
       </AppShell>
     </div>
   );

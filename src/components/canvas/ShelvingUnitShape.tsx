@@ -6,11 +6,21 @@ interface Props {
   unit: ShelvingUnit;
   pxPerInch: number;
   isSelected: boolean;
+  draggable?: boolean;
+  dimmed?: boolean;
   onSelect: () => void;
   onDragEnd: (xIn: number, yIn: number) => void;
 }
 
-export default function ShelvingUnitShape({ unit, pxPerInch, isSelected, onSelect, onDragEnd }: Props) {
+export default function ShelvingUnitShape({
+  unit,
+  pxPerInch,
+  isSelected,
+  draggable = true,
+  dimmed = false,
+  onSelect,
+  onDragEnd,
+}: Props) {
   const widthPx = unit.widthIn * pxPerInch;
   const depthPx = unit.depthIn * pxPerInch;
 
@@ -19,7 +29,9 @@ export default function ShelvingUnitShape({ unit, pxPerInch, isSelected, onSelec
       x={(unit.x ?? 0) * pxPerInch}
       y={(unit.y ?? 0) * pxPerInch}
       rotation={unit.rotationDeg ?? 0}
-      draggable
+      draggable={draggable}
+      opacity={dimmed ? 0.4 : 1}
+      listening={draggable}
       onClick={onSelect}
       onTap={onSelect}
       onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => {

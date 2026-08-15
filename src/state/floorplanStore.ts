@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { Floorplan, ShelvingUnit, Shelf, UnitTypeTemplate } from '../types';
+import type { Floorplan, ShelvingUnit, Shelf, UnitTypeTemplate, Point } from '../types';
 import { floorplanRepository, shelvingUnitRepository, shelfRepository } from '../data';
+import { normalizePolygon, polygonBounds } from '../utils/geometry';
 
 function nowIso() {
   return new Date().toISOString();
@@ -32,6 +33,7 @@ interface FloorplanState {
   createFloorplan: (input: Pick<Floorplan, 'name' | 'spaceType' | 'widthIn' | 'depthIn'>) => Promise<Floorplan>;
   deleteFloorplan: (id: string) => Promise<void>;
   selectFloorplan: (id: string | null) => Promise<void>;
+  updateFloorplanOutline: (floorplanId: string, outline: Point[]) => Promise<void>;
 
   addUnitFromTemplate: (template: UnitTypeTemplate) => Promise<void>;
   updateUnit: (unit: ShelvingUnit) => Promise<void>;
@@ -94,6 +96,24 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
       shelvesByUnitId[unit.id] = await shelfRepository.listByShelvingUnit(unit.id);
     }
     set({ activeFloorplanId: id, units, shelvesByUnitId });
+  },
+
+  updateFloorplanOutline: async (floorplanId, outline) => {
+    const floorplan = get().floorplans.find((f) => f.id === floorplanId);
+    if (!floorplan) return;
+    const normalized = normalizePolygon(outline);
+    const bounds = polygonBounds(normalized);
+    const updated: Floorplan = {
+      ...floorplan,
+      outline: normalized,
+      widthIn: bounds.widthIn,
+      depthIn: bounds.depthIn,
+      updatedAt: nowIso(),
+    };
+    await floorplanRepository.update(updated);
+    set((state) => ({
+      floorplans: state.floorplans.map((f) => (f.id === updated.id ? updated : f)),
+    }));
   },
 
   addUnitFromTemplate: async (template) => {
