@@ -175,6 +175,29 @@ label {
   text-align: left;
 }
 
+.shelf-row {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.shelf-row-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.4rem;
+}
+
+.shelf-row label {
+  margin-bottom: 0.4rem;
+}
+
+.shelf-row label:last-child {
+  margin-bottom: 0;
+}
+
 /* --- Elevation modal --- */
 
 .modal-backdrop {

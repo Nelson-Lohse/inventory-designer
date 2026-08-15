@@ -57,6 +57,7 @@ interface FloorplanState {
   deleteUnit: (id: string) => Promise<void>;
 
   setShelfLabelText: (shelfId: string, text: string) => Promise<void>;
+  setShelfHeight: (shelfId: string, heightFromFloorIn: number) => Promise<void>;
 
   addZone: () => Promise<void>;
   updateZone: (zone: Zone) => Promise<void>;
@@ -200,15 +201,21 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
     const updated = { ...unit, updatedAt: nowIso() };
     await shelvingUnitRepository.update(updated);
 
+    // heightFromFloorIn is independently editable per shelf (see setShelfHeight)
+    // once created, so existing shelves keep whatever height they were given —
+    // changing the unit's own heightIn/mountHeightIn doesn't silently move them.
     let shelves = get().shelvesByUnitId[unit.id] ?? [];
     if (previous && previous.shelfCount !== updated.shelfCount) {
       const nextCount = Math.max(updated.shelfCount, 0);
       if (nextCount > shelves.length) {
-        const toAdd = Array.from({ length: nextCount - shelves.length }, (_, i) => ({
+        const addedCount = nextCount - shelves.length;
+        const toAdd = Array.from({ length: addedCount }, (_, i) => ({
           id: makeId(),
           shelvingUnitId: unit.id,
           levelIndex: shelves.length + i,
-          heightFromFloorIn: null,
+          // Evenly-spaced starting point for a newly-added shelf only — not
+          // recalculated for shelves that already existed.
+          heightFromFloorIn: Math.round(updated.mountHeightIn + (updated.heightIn / nextCount) * (shelves.length + i + 1)),
           labels: [],
         }));
         for (const shelf of toAdd) await shelfRepository.create(shelf);
@@ -218,22 +225,6 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
         for (const shelf of toRemove) await shelfRepository.remove(shelf.id);
         shelves = shelves.slice(0, nextCount);
       }
-    }
-
-    // heightFromFloorIn is measured from the true floor (see types/shelving.ts),
-    // so it depends on mountHeightIn too, not just heightIn/shelfCount.
-    const dimensionsChanged =
-      !previous ||
-      previous.shelfCount !== updated.shelfCount ||
-      previous.heightIn !== updated.heightIn ||
-      previous.mountHeightIn !== updated.mountHeightIn;
-    if (dimensionsChanged && shelves.length > 0) {
-      const recalculated = shelves.map((shelf) => ({
-        ...shelf,
-        heightFromFloorIn: Math.round(updated.mountHeightIn + (updated.heightIn / shelves.length) * (shelf.levelIndex + 1)),
-      }));
-      for (const shelf of recalculated) await shelfRepository.update(shelf);
-      shelves = recalculated;
     }
 
     set((state) => ({
@@ -279,6 +270,32 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
               ]
             : [],
         };
+        break;
+      }
+    }
+
+    if (!ownerUnitId || !updatedShelf) return;
+    await shelfRepository.update(updatedShelf);
+    const finalShelf = updatedShelf;
+    const finalUnitId = ownerUnitId;
+    set((s) => ({
+      shelvesByUnitId: {
+        ...s.shelvesByUnitId,
+        [finalUnitId]: s.shelvesByUnitId[finalUnitId].map((sh) => (sh.id === shelfId ? finalShelf : sh)),
+      },
+    }));
+  },
+
+  setShelfHeight: async (shelfId, heightFromFloorIn) => {
+    const state = get();
+    let ownerUnitId: string | null = null;
+    let updatedShelf: Shelf | null = null;
+
+    for (const [unitId, shelves] of Object.entries(state.shelvesByUnitId)) {
+      const shelf = shelves.find((s) => s.id === shelfId);
+      if (shelf) {
+        ownerUnitId = unitId;
+        updatedShelf = { ...shelf, heightFromFloorIn: Math.max(0, heightFromFloorIn) };
         break;
       }
     }
