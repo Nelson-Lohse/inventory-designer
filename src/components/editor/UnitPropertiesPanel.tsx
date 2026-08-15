@@ -5,6 +5,7 @@ export default function UnitPropertiesPanel() {
   const selectedUnitId = useEditorStore((s) => s.selectedUnitId);
   const selectUnit = useEditorStore((s) => s.selectUnit);
   const flashCollision = useEditorStore((s) => s.flashCollision);
+  const openElevationView = useEditorStore((s) => s.openElevationView);
   const unit = useFloorplanStore((s) => s.units.find((u) => u.id === selectedUnitId));
   const updateUnit = useFloorplanStore((s) => s.updateUnit);
   const deleteUnit = useFloorplanStore((s) => s.deleteUnit);
@@ -72,6 +73,7 @@ export default function UnitPropertiesPanel() {
       <button onClick={() => applyOrFlash({ ...unit, rotationDeg: ((unit.rotationDeg ?? 0) + 90) % 360 })}>
         Rotate 90°
       </button>
+      <button onClick={openElevationView}>View elevation</button>
       <button
         className="danger"
         onClick={() => {
