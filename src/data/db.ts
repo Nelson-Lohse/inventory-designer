@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Floorplan, UnitTypeTemplate, ShelvingUnit, Shelf } from '../types';
+import type { Floorplan, UnitTypeTemplate, ShelvingUnit, Shelf, Zone } from '../types';
 
 /**
  * Versioned .stores() migrations so future schema changes (v2 category
@@ -11,6 +11,7 @@ class InventoryDesignerDB extends Dexie {
   unitTypeTemplates!: Table<UnitTypeTemplate, string>;
   shelvingUnits!: Table<ShelvingUnit, string>;
   shelves!: Table<Shelf, string>;
+  zones!: Table<Zone, string>;
 
   constructor() {
     super('inventory-designer');
@@ -19,6 +20,13 @@ class InventoryDesignerDB extends Dexie {
       unitTypeTemplates: 'id, name, category',
       shelvingUnits: 'id, floorplanId, unitTypeTemplateId',
       shelves: 'id, shelvingUnitId, levelIndex',
+    });
+    this.version(2).stores({
+      floorplans: 'id, name, spaceType',
+      unitTypeTemplates: 'id, name, category',
+      shelvingUnits: 'id, floorplanId, unitTypeTemplateId',
+      shelves: 'id, shelvingUnitId, levelIndex',
+      zones: 'id, floorplanId',
     });
   }
 }

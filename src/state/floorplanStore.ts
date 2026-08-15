@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { Floorplan, ShelvingUnit, Shelf, UnitTypeTemplate, Point } from '../types';
-import { floorplanRepository, shelvingUnitRepository, shelfRepository } from '../data';
+import type { Floorplan, ShelvingUnit, Shelf, UnitTypeTemplate, Point, Zone } from '../types';
+import { floorplanRepository, shelvingUnitRepository, shelfRepository, zoneRepository } from '../data';
 import { normalizePolygon, polygonBounds } from '../utils/geometry';
 
 function nowIso() {
@@ -10,6 +10,8 @@ function nowIso() {
 function makeId() {
   return crypto.randomUUID();
 }
+
+const ZONE_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
 
 function makeShelvesForUnit(unit: ShelvingUnit): Shelf[] {
   const count = Math.max(unit.shelfCount, 0);
@@ -27,6 +29,7 @@ interface FloorplanState {
   activeFloorplanId: string | null;
   units: ShelvingUnit[];
   shelvesByUnitId: Record<string, Shelf[]>;
+  zones: Zone[];
   loading: boolean;
 
   loadFloorplans: () => Promise<void>;
@@ -40,6 +43,10 @@ interface FloorplanState {
   deleteUnit: (id: string) => Promise<void>;
 
   setShelfLabelText: (shelfId: string, text: string) => Promise<void>;
+
+  addZone: () => Promise<void>;
+  updateZone: (zone: Zone) => Promise<void>;
+  deleteZone: (id: string) => Promise<void>;
 }
 
 export const useFloorplanStore = create<FloorplanState>((set, get) => ({
@@ -47,6 +54,7 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
   activeFloorplanId: null,
   units: [],
   shelvesByUnitId: {},
+  zones: [],
   loading: false,
 
   loadFloorplans: async () => {
@@ -87,7 +95,7 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
 
   selectFloorplan: async (id) => {
     if (!id) {
-      set({ activeFloorplanId: null, units: [], shelvesByUnitId: {} });
+      set({ activeFloorplanId: null, units: [], shelvesByUnitId: {}, zones: [] });
       return;
     }
     const units = await shelvingUnitRepository.listByFloorplan(id);
@@ -95,7 +103,8 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
     for (const unit of units) {
       shelvesByUnitId[unit.id] = await shelfRepository.listByShelvingUnit(unit.id);
     }
-    set({ activeFloorplanId: id, units, shelvesByUnitId });
+    const zones = await zoneRepository.listByFloorplan(id);
+    set({ activeFloorplanId: id, units, shelvesByUnitId, zones });
   },
 
   updateFloorplanOutline: async (floorplanId, outline) => {
@@ -224,5 +233,39 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
         [finalUnitId]: s.shelvesByUnitId[finalUnitId].map((sh) => (sh.id === shelfId ? finalShelf : sh)),
       },
     }));
+  },
+
+  addZone: async () => {
+    const floorplanId = get().activeFloorplanId;
+    if (!floorplanId) return;
+    const color = ZONE_COLORS[get().zones.length % ZONE_COLORS.length];
+    const zone: Zone = {
+      id: makeId(),
+      floorplanId,
+      name: 'New Zone',
+      color,
+      widthIn: 36,
+      depthIn: 36,
+      x: 12,
+      y: 12,
+      rotationDeg: 0,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    await zoneRepository.create(zone);
+    set((state) => ({ zones: [...state.zones, zone] }));
+  },
+
+  updateZone: async (zone) => {
+    const updated = { ...zone, updatedAt: nowIso() };
+    await zoneRepository.update(updated);
+    set((state) => ({
+      zones: state.zones.map((z) => (z.id === updated.id ? updated : z)),
+    }));
+  },
+
+  deleteZone: async (id) => {
+    await zoneRepository.remove(id);
+    set((state) => ({ zones: state.zones.filter((z) => z.id !== id) }));
   },
 }));

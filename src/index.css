@@ -47,6 +47,11 @@ select {
   width: 100%;
 }
 
+input[type='color'] {
+  width: 60px;
+  padding: 0.25rem;
+}
+
 label {
   display: flex;
   flex-direction: column;

@@ -5,6 +5,8 @@ import Toolbar from '../components/editor/Toolbar';
 import UnitPalette from '../components/editor/UnitPalette';
 import UnitPropertiesPanel from '../components/editor/UnitPropertiesPanel';
 import ShelfLabelEditor from '../components/editor/ShelfLabelEditor';
+import ZonePalette from '../components/editor/ZonePalette';
+import ZonePropertiesPanel from '../components/editor/ZonePropertiesPanel';
 import RoomWallLengthPanel from '../components/editor/RoomWallLengthPanel';
 import FloorplanCanvas from '../components/canvas/FloorplanCanvas';
 
@@ -26,6 +28,8 @@ export default function FloorplanEditorPage() {
               <UnitPalette />
               <UnitPropertiesPanel />
               <ShelfLabelEditor />
+              <ZonePalette />
+              <ZonePropertiesPanel />
             </>
           )
         }
