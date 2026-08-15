@@ -50,6 +50,19 @@ export default function UnitPropertiesPanel() {
           onChange={(e) => updateUnit({ ...unit, shelfCount: Math.max(1, Number(e.target.value)) })}
         />
       </label>
+      <label>
+        Height off floor (in)
+        <input
+          type="number"
+          min={0}
+          value={unit.mountHeightIn}
+          onChange={(e) => updateUnit({ ...unit, mountHeightIn: Math.max(0, Number(e.target.value)) })}
+        />
+      </label>
+      <p className="muted">
+        0 = floor-standing (including under-counter). Positive = wall-mounted, measured from the true floor to the
+        bottom of the unit.
+      </p>
       <button onClick={() => updateUnit({ ...unit, rotationDeg: ((unit.rotationDeg ?? 0) + 90) % 360 })}>
         Rotate 90°
       </button>

@@ -19,7 +19,7 @@ function makeShelvesForUnit(unit: ShelvingUnit): Shelf[] {
     id: makeId(),
     shelvingUnitId: unit.id,
     levelIndex,
-    heightFromFloorIn: count > 0 ? Math.round((unit.heightIn / count) * (levelIndex + 1)) : null,
+    heightFromFloorIn: count > 0 ? Math.round(unit.mountHeightIn + (unit.heightIn / count) * (levelIndex + 1)) : null,
     labels: [],
   }));
 }
@@ -136,6 +136,7 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
       depthIn: template.defaultDepthIn,
       heightIn: template.defaultHeightIn,
       shelfCount: template.defaultShelfCount,
+      mountHeightIn: 0,
       floorplanId,
       x: 12,
       y: 12,
@@ -175,6 +176,22 @@ export const useFloorplanStore = create<FloorplanState>((set, get) => ({
         for (const shelf of toRemove) await shelfRepository.remove(shelf.id);
         shelves = shelves.slice(0, nextCount);
       }
+    }
+
+    // heightFromFloorIn is measured from the true floor (see types/shelving.ts),
+    // so it depends on mountHeightIn too, not just heightIn/shelfCount.
+    const dimensionsChanged =
+      !previous ||
+      previous.shelfCount !== updated.shelfCount ||
+      previous.heightIn !== updated.heightIn ||
+      previous.mountHeightIn !== updated.mountHeightIn;
+    if (dimensionsChanged && shelves.length > 0) {
+      const recalculated = shelves.map((shelf) => ({
+        ...shelf,
+        heightFromFloorIn: Math.round(updated.mountHeightIn + (updated.heightIn / shelves.length) * (shelf.levelIndex + 1)),
+      }));
+      for (const shelf of recalculated) await shelfRepository.update(shelf);
+      shelves = recalculated;
     }
 
     set((state) => ({

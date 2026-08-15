@@ -23,6 +23,8 @@ export default function ShelvingUnitShape({
 }: Props) {
   const widthPx = unit.widthIn * pxPerInch;
   const depthPx = unit.depthIn * pxPerInch;
+  const isElevated = unit.mountHeightIn > 0;
+  const subtitle = isElevated ? `${unit.shelfCount} shelves · @${unit.mountHeightIn}"` : `${unit.shelfCount} shelves`;
 
   return (
     <Group
@@ -41,20 +43,14 @@ export default function ShelvingUnitShape({
       <Rect
         width={widthPx}
         height={depthPx}
-        fill="#bfdbfe"
-        stroke={isSelected ? '#2563eb' : '#1e3a8a'}
+        fill={isElevated ? '#ede9fe' : '#bfdbfe'}
+        stroke={isSelected ? '#2563eb' : isElevated ? '#6d28d9' : '#1e3a8a'}
         strokeWidth={isSelected ? 3 : 1.5}
+        dash={isElevated ? [5, 3] : undefined}
         cornerRadius={2}
       />
       <Text text={unit.name} fontSize={11} padding={4} fill="#1e293b" width={widthPx} />
-      <Text
-        text={`${unit.shelfCount} shelves`}
-        fontSize={10}
-        padding={4}
-        y={depthPx - 16}
-        fill="#475569"
-        width={widthPx}
-      />
+      <Text text={subtitle} fontSize={10} padding={4} y={depthPx - 16} fill="#475569" width={widthPx} />
     </Group>
   );
 }

@@ -17,6 +17,9 @@ export default function ShelfLabelEditor() {
       {sorted.map((shelf, i) => (
         <label key={shelf.id}>
           Shelf {sorted.length - i}
+          {shelf.heightFromFloorIn != null && (
+            <span className="muted"> — {shelf.heightFromFloorIn}" from floor</span>
+          )}
           <input
             placeholder="What goes here?"
             value={shelf.labels[0]?.text ?? ''}
