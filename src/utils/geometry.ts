@@ -71,3 +71,110 @@ export function pointInPolygon(point: Point, polygon: Point[]): boolean {
   }
   return inside;
 }
+
+export function edgeLength(outline: Point[], edgeIndex: number): number {
+  const n = outline.length;
+  const a = outline[edgeIndex];
+  const b = outline[(edgeIndex + 1) % n];
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+/**
+ * Sets the length of the edge starting at edgeIndex by moving its END point
+ * along the edge's current direction. The start point (and the rest of the
+ * shape) doesn't move — only this edge and its immediate neighbor change.
+ */
+export function setEdgeLength(outline: Point[], edgeIndex: number, newLengthIn: number): Point[] {
+  const n = outline.length;
+  const start = outline[edgeIndex];
+  const endIndex = (edgeIndex + 1) % n;
+  const end = outline[endIndex];
+  const currentLength = Math.hypot(end.x - start.x, end.y - start.y);
+  if (currentLength === 0 || newLengthIn < 0) return outline;
+  const ux = (end.x - start.x) / currentLength;
+  const uy = (end.y - start.y) / currentLength;
+  const newEnd: Point = { x: start.x + ux * newLengthIn, y: start.y + uy * newLengthIn };
+  return outline.map((p, i) => (i === endIndex ? newEnd : p));
+}
+
+const RIGHT_ANGLE_SNAP_THRESHOLD_DEG = 6;
+
+/**
+ * Rotates `point` around `anchor` to the nearest 0/90/180/270 direction,
+ * preserving its distance from `anchor`. With a threshold, only snaps when
+ * already within that many degrees of an axis (for magnetic drag-snapping);
+ * pass null to always snap (for an explicit "make this a right angle" action).
+ */
+function rotateToNearestAxis(anchor: Point, point: Point, thresholdDeg: number | null): Point {
+  const dx = point.x - anchor.x;
+  const dy = point.y - anchor.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist === 0) return point;
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+  const nearest90 = Math.round(angleDeg / 90) * 90;
+  if (thresholdDeg !== null && Math.abs(angleDeg - nearest90) > thresholdDeg) return point;
+  const rad = (nearest90 * Math.PI) / 180;
+  return { x: anchor.x + Math.cos(rad) * dist, y: anchor.y + Math.sin(rad) * dist };
+}
+
+/**
+ * Magnetic snapping for a corner being dragged: if the edge to the previous
+ * or next corner is close to horizontal/vertical, pulls it exactly there.
+ * Applied relative to both neighbors in turn, so an exact rectilinear corner
+ * (the common case) satisfies both; a near-miss on just one still snaps that
+ * one edge.
+ */
+export function snapDragToAxes(
+  outline: Point[],
+  index: number,
+  candidate: Point,
+  thresholdDeg = RIGHT_ANGLE_SNAP_THRESHOLD_DEG
+): Point {
+  const n = outline.length;
+  const prev = outline[(index - 1 + n) % n];
+  const next = outline[(index + 1) % n];
+  let p = rotateToNearestAxis(prev, candidate, thresholdDeg);
+  p = rotateToNearestAxis(next, p, thresholdDeg);
+  return p;
+}
+
+/** Intersection of two infinite lines, each given as a point plus a direction angle. Null if parallel. */
+function lineIntersection(p1: Point, angle1Deg: number, p2: Point, angle2Deg: number): Point | null {
+  const a1 = (angle1Deg * Math.PI) / 180;
+  const a2 = (angle2Deg * Math.PI) / 180;
+  const d1x = Math.cos(a1);
+  const d1y = Math.sin(a1);
+  const d2x = Math.cos(a2);
+  const d2y = Math.sin(a2);
+  const denom = d1x * d2y - d1y * d2x;
+  if (Math.abs(denom) < 1e-9) return null;
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const t = (dx * d2y - dy * d2x) / denom;
+  return { x: p1.x + d1x * t, y: p1.y + d1y * t };
+}
+
+/**
+ * Explicitly forces both edges at a corner to the nearest right angle,
+ * regardless of current angle. Finds the point that satisfies BOTH the
+ * incoming edge's snapped direction (from prev) AND the outgoing edge's
+ * snapped direction (to next) at once, via line intersection — so a wall
+ * that's already clean isn't disturbed by snapping its neighbor.
+ */
+export function snapVertexToRightAngle(outline: Point[], index: number): Point[] {
+  const n = outline.length;
+  const prev = outline[(index - 1 + n) % n];
+  const current = outline[index];
+  const next = outline[(index + 1) % n];
+
+  const inAngle = (Math.atan2(current.y - prev.y, current.x - prev.x) * 180) / Math.PI;
+  const outAngle = (Math.atan2(next.y - current.y, next.x - current.x) * 180) / Math.PI;
+  const snappedIn = Math.round(inAngle / 90) * 90;
+  const snappedOut = Math.round(outAngle / 90) * 90;
+
+  const intersection =
+    lineIntersection(prev, snappedIn, next, snappedOut) ??
+    rotateToNearestAxis(next, rotateToNearestAxis(prev, current, null), null);
+
+  return outline.map((pt, i) => (i === index ? intersection : pt));
+}

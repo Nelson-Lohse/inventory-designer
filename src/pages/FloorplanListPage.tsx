@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useFloorplanStore } from '../state/floorplanStore';
 import type { SpaceType } from '../types';
+import { formatInches } from '../utils/units';
 
 const SPACE_TYPES: { value: SpaceType; label: string }[] = [
   { value: 'dry_storage', label: 'Dry storage' },
@@ -48,7 +49,7 @@ export default function FloorplanListPage() {
                 {f.name}
                 <span className="muted">
                   {' '}
-                  — {f.spaceType.replace(/_/g, ' ')}, {f.widthIn}×{f.depthIn}"
+                  — {f.spaceType.replace(/_/g, ' ')}, {formatInches(f.widthIn)}×{formatInches(f.depthIn)}
                 </span>
               </button>
               <button className="danger" onClick={() => deleteFloorplan(f.id)}>

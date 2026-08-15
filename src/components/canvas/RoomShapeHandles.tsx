@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Circle } from 'react-konva';
+import { useEffect } from 'react';
+import { Circle, Text } from 'react-konva';
 import type Konva from 'konva';
 import type { Point } from '../../types';
-import { insertVertexAtEdge, removeVertex, snapToGrid } from '../../utils/geometry';
+import { useEditorStore } from '../../state/editorStore';
+import { edgeLength, insertVertexAtEdge, removeVertex, snapDragToAxes, snapToGrid } from '../../utils/geometry';
+import { formatInches } from '../../utils/units';
 
 interface Props {
   outline: Point[];
@@ -15,45 +17,68 @@ const VERTEX_RADIUS = 7;
 const MIDPOINT_RADIUS = 5;
 
 /**
- * Drag a corner to reshape the room. Click an edge midpoint to add a new
- * corner there (that's how you carve a hallway notch or an L-shape out of a
- * rectangle). Remove a corner by double-clicking/double-tapping it, or by
- * clicking it once to select (turns red) then pressing Delete/Backspace —
- * the keyboard path exists because double-click is a poor touch/automation
- * target on a ~14px handle. Never drops below a triangle.
+ * Drag a corner to reshape the room — edges within a few degrees of
+ * horizontal/vertical snap exactly there, since right angles are by far the
+ * most common case. Click an edge midpoint to add a new corner (that's how
+ * you carve a hallway notch or an L-shape out of a rectangle). Remove a
+ * corner by double-clicking/double-tapping it, or by clicking it once to
+ * select (turns red) then pressing Delete/Backspace — the keyboard path
+ * exists because double-click is a poor touch/automation target on a ~14px
+ * handle. Never drops below a triangle. Each edge's exact length is shown
+ * here for visual reference; it's editable in the sidebar wall-length panel.
  */
 export default function RoomShapeHandles({ outline, pxPerInch, gridSizeIn, onChange }: Props) {
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const selectedIndex = useEditorStore((s) => s.selectedVertexIndex);
+  const selectVertex = useEditorStore((s) => s.selectVertex);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIndex !== null) {
         e.preventDefault();
         onChange(removeVertex(outline, selectedIndex));
-        setSelectedIndex(null);
+        selectVertex(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, outline, onChange]);
+  }, [selectedIndex, outline, onChange, selectVertex]);
 
   useEffect(() => {
-    if (selectedIndex !== null && selectedIndex >= outline.length) setSelectedIndex(null);
-  }, [outline, selectedIndex]);
+    if (selectedIndex !== null && selectedIndex >= outline.length) selectVertex(null);
+  }, [outline, selectedIndex, selectVertex]);
 
   const handleVertexDragEnd = (index: number, e: Konva.KonvaEventObject<DragEvent>) => {
     const xIn = snapToGrid(e.target.x() / pxPerInch, gridSizeIn);
     const yIn = snapToGrid(e.target.y() / pxPerInch, gridSizeIn);
-    onChange(outline.map((p, i) => (i === index ? { x: xIn, y: yIn } : p)));
+    const snapped = snapDragToAxes(outline, index, { x: xIn, y: yIn });
+    onChange(outline.map((p, i) => (i === index ? snapped : p)));
   };
 
   const removeAndClear = (index: number) => {
     onChange(removeVertex(outline, index));
-    setSelectedIndex(null);
+    selectVertex(null);
   };
 
   return (
     <>
+      {outline.map((point, i) => {
+        const next = outline[(i + 1) % outline.length];
+        const midX = ((point.x + next.x) / 2) * pxPerInch;
+        const midY = ((point.y + next.y) / 2) * pxPerInch;
+        return (
+          <Text
+            key={`len-${i}`}
+            x={midX}
+            y={midY}
+            text={formatInches(edgeLength(outline, i))}
+            fontSize={11}
+            fill="#334155"
+            offsetX={-8}
+            offsetY={16}
+            listening={false}
+          />
+        );
+      })}
       {outline.map((point, i) => {
         const next = outline[(i + 1) % outline.length];
         const midX = ((point.x + next.x) / 2) * pxPerInch;
@@ -82,8 +107,8 @@ export default function RoomShapeHandles({ outline, pxPerInch, gridSizeIn, onCha
           stroke={selectedIndex === i ? '#7f1d1d' : '#1e3a8a'}
           strokeWidth={1.5}
           draggable
-          onClick={() => setSelectedIndex(i)}
-          onTap={() => setSelectedIndex(i)}
+          onClick={() => selectVertex(i)}
+          onTap={() => selectVertex(i)}
           onDragEnd={(e: Konva.KonvaEventObject<DragEvent>) => handleVertexDragEnd(i, e)}
           onDblClick={() => removeAndClear(i)}
           onDblTap={() => removeAndClear(i)}
